@@ -2,7 +2,7 @@
 
 ## Linha direta (dados da família)
 - **Nilson Alves Brilhante** — filho de Geraldo e Francisca
-- **Geraldo Alves Brilhante** — * 08/07/1939, "Estado do Ceará" (a identidade não traz o município; ele dizia que morava em Pereiro) · † 21/02/2026, Rio Branco (AC) · c.c. Francisca Alves Brilhante
+- **Geraldo Alves Brilhante** — * 08/07/1939, **Pereiro (CE)** (certidão de casamento) · † 21/02/2026, Rio Branco (AC) · c.c. (civil 08/05/1976, Rio Branco) Francisca Alves Brilhante (nascida Francisca Alves Filha, * 18/04/1941, Ceará, filha de Francisca Alves de Moura)
   - filiação confirmada pela identidade e pelo registro de casamento do Geraldo
   - irmãos: Erasmo e Manoel (Alves Brilhante)
 - **José Alves Brilhante** × **Antonia Ferreira de Lima** — pais de Geraldo
@@ -186,7 +186,7 @@ Linhagem mais antiga conhecida (literatura):
 ### Relato novo (Luiz, pelo tio)
 - **Na identidade, o José Alves Brilhante se chamava José Patrício (de) Oliveira.**
 - **Aos 11 anos saiu de casa e foi adotado por um homem chamado Genuíno (ou Jesuíno?) Brilhante.**
-- **Registro de casamento do Geraldo:** pais **José Alves Brilhante** e **Antonia Ferreira Lima** (CONFIRMADO; bate com a identidade do Geraldo e com a DO do Aldísio). Falta anotar data, cartório e se o termo dá a naturalidade do Geraldo.
+- **Registro de casamento do Geraldo:** pais **José Alves Brilhante** e **Antonia Ferreira Lima** (CONFIRMADO; bate com a identidade do Geraldo e com a DO do Aldísio). Transcrição na 8ª rodada.
 
 ### O que isso muda
 - **O "Alves Brilhante" do José provavelmente não é de sangue: vem do pai adotivo.** Isso explica por que nenhum nascimento ou batismo de um José Alves Brilhante aparece com pais que batam. A partir daqui há duas linhas a pesquisar:
@@ -201,7 +201,27 @@ Linhagem mais antiga conhecida (literatura):
 
 ### Próximos passos (novos)
 1. Perguntar ao tio: **onde o José nasceu ou de onde fugiu**, **onde vivia o Genuíno/Jesuíno** e se o José tinha irmãos de sangue. Também se alguém guarda a identidade ou outro documento do José (foto, número do RG, órgão emissor).
-2. Anotar do **registro de casamento do Geraldo**: data, cartório e cidade, idade, naturalidade e testemunhas.
+2. ~~Anotar do registro de casamento do Geraldo~~ → feito (8ª rodada).
 3. FamilySearch (com login): buscar **José Patrício (de) Oliveira**, nascido c. 1880–1898 (PB, RN, CE); como pai, cônjuge Antonia (Ferreira de Lima) e filhos Aldísio, Geraldo, Erasmo e Manoel; e como falecido no Acre ou no Amazonas depois de 1977. Buscar também **Benvinda/Bemvinda** com sobrenome Oliveira.
 4. FamilySearch / texto completo: **Genuíno Brilhante** e **Jesuíno Brilhante** com registros de 1880 a 1920 (padrinho, pai, óbito) na PB, no RN e no CE.
 5. registrocivil.org.br / cartórios de Rio Branco: óbito de "José Patrício (de) Oliveira" **e** de "José Alves Brilhante", depois de 1977.
+
+## 8ª rodada — 07/10/2026: certidão de casamento do Geraldo (PROVADO)
+Foto: [documentos/casamento_geraldo_1976.jpg](documentos/casamento_geraldo_1976.jpg)
+- **Certidão de Casamento**, 2ª via emitida em 11/09/1997 · Poder Judiciário do Estado do Acre, **1ª Serventia do Registro Civil das Pessoas Naturais de Rio Branco (AC)** · oficial Antonia Aparecida da Silva C. Branco
+- Casamento nº **44**, fls. **247** do livro **(B?)-25** de registro de casamento, assento de **08/05/1976**
+- Juiz de Direito: Nielse Gonçalves Mouta · testemunhas: **João Tomaz de Queiroz** e **João de Almeida Lira**
+- **Ele: Geraldo Alves Brilhante**, brasileiro, solteiro, **nascido em Pereiro/CE em 08/07/1939**, agricultor, residente em Rio Branco, **filho de José Alves Brilhante e Antonia Ferreira Lima**
+- **Ela: Francisca Alves Filha**, brasileira, solteira, nascida no **Estado do Ceará** (sem município) em **18/04/1941**, do lar, residente em Rio Branco, **pai não declarado (asteriscos)**, **mãe Francisca Alves de Moura** · passou a assinar **Francisca Alves Brilhante**
+- Regime: comunhão de bens
+
+### O que isso acrescenta
+- **Naturalidade do Geraldo: Pereiro (CE) — PROVADO** (antes só pelo relato e pela DO do irmão Aldísio).
+- O casamento civil é de 1976, mas a mãe do Luiz nasceu em 1967 → o casal já vivia junto antes; o civil regularizou a união. Filhos nascidos antes de 1976 podem ter sido registrados sem o casamento dos pais.
+- **Ramo novo: Francisca Alves de Moura** (avó materna da mãe do Luiz, mãe da Francisca). Ceará, sem município. Curiosidade sem ligação provada: o casamento de Patu de 1895 tem uma **Maria Firma de Moura** (filha de Manoel Monteiro de Moura) casando com Antonio Alves Brilhante; "Alves" e "Moura" juntos podem ser só coincidência.
+- Reforça que **Francisca Luiza Alves Brilhante** (n. 1979 Rio Branco, † 04/08/2013 Manaus, mãe "Francisca Alves Brilhante" — 1:1:XS76-FQDP) seja filha do Geraldo e da Francisca. Perguntar à família.
+- Livro B-25 da 1ª Serventia de Rio Branco: o mesmo cartório pode ter o **óbito do José** (como José Alves Brilhante ou José Patrício Oliveira) e o do Erasmo (2014).
+
+### Próximos passos (8ª rodada)
+1. Perguntar: de que município do Ceará era a Francisca e a mãe dela (Francisca Alves de Moura)? Francisca Luiza (1979) era filha deles?
+2. Pedir à 1ª Serventia de Rio Branco (hoje 1º Ofício de Registro Civil) busca de óbito de **José Alves Brilhante / José Patrício (de) Oliveira**, depois de 1977.
