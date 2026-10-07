@@ -3,9 +3,10 @@
 ## Linha direta (dados da família)
 - **Nilson Alves Brilhante** — filho de Geraldo e Francisca
 - **Geraldo Alves Brilhante** — * 08/07/1939, "Estado do Ceará" (a identidade não traz o município; ele dizia que morava em Pereiro) · † 21/02/2026, Rio Branco (AC) · c.c. Francisca Alves Brilhante
-  - filiação confirmada pela identidade
+  - filiação confirmada pela identidade e pelo registro de casamento do Geraldo
   - irmãos: Erasmo e Manoel (Alves Brilhante)
 - **José Alves Brilhante** × **Antonia Ferreira de Lima** — pais de Geraldo
+  - segundo o tio do Luiz, a identidade do José dizia **José Patrício (de) Oliveira**; aos 11 anos ele saiu de casa e foi adotado por um **Genuíno (ou Jesuíno?) Brilhante** → "Alves Brilhante" seria o nome do pai adotivo (ver 7ª rodada)
 - Pais de José e de Antonia: ? (próximo alvo)
 - Família lembra de uma "Gertrudes", posição ainda desconhecida
 
@@ -180,3 +181,27 @@ Linhagem mais antiga conhecida (literatura):
 - Busca da Benvinda no FamilySearch: nada em registros indexados nem no texto completo. Variantes testadas: Benvinda, Bemvinda e Bem Vinda; Militana, Melitana, Militiana e Milisiana; Flores e Flor. Também como mãe (com filtro PB, RN e CE) e como esposa de um Brilhante. Ajuda pedir ao Josimar o nome escrito (documento dele ou da mãe) ou de onde ela era.
 - **Atualização (Luiz):** os avós citados pelo Josimar são do **lado do pai**. Portanto **José × "Bem Vinda Militana Flores" seriam os pais do José Alves Brilhante** (avós paternos do Geraldo). O pai provavelmente também se chamava José Alves Brilhante (hipótese do Luiz). Possível ligação: o José Alves Brilhante padrinho em Piancó em 17/03/1907, com Joanna Maria da Conceição (1:1:66RG-5Y7Z).
 - Busca pendente (interrompida por troca de janela): registros de um José, filho de José × Benvinda/Bemvinda, na PB, no RN e no CE; e José Alves (Brilhante) casado com Benvinda. Fazer em consultas pequenas à API (uma por vez: o lote estourou o tempo de 45 s).
+
+## 7ª rodada — 07/10/2026 (noite): José Patrício Oliveira, adoção por um Brilhante
+### Relato novo (Luiz, pelo tio)
+- **Na identidade, o José Alves Brilhante se chamava José Patrício (de) Oliveira.**
+- **Aos 11 anos saiu de casa e foi adotado por um homem chamado Genuíno (ou Jesuíno?) Brilhante.**
+- **Registro de casamento do Geraldo:** pais **José Alves Brilhante** e **Antonia Ferreira Lima** (CONFIRMADO; bate com a identidade do Geraldo e com a DO do Aldísio). Falta anotar data, cartório e se o termo dá a naturalidade do Geraldo.
+
+### O que isso muda
+- **O "Alves Brilhante" do José provavelmente não é de sangue: vem do pai adotivo.** Isso explica por que nenhum nascimento ou batismo de um José Alves Brilhante aparece com pais que batam. A partir daqui há duas linhas a pesquisar:
+  1. **Linha biológica (sobrenome Oliveira):** nascimento ou batismo de um **José Patrício (de) Oliveira**, n. c. 1880–1898, na PB, no RN ou no CE. Os pais seriam provavelmente o **José** e a **"Bem Vinda Militana Flores"** citados pelo Josimar como avós paternos. "Patrício" pode ser só o segundo nome ou vir do pai ou do avô.
+  2. **Linha adotiva (sobrenome Brilhante):** quem era o Genuíno/Jesuíno Brilhante.
+     - **Não pode ser o cangaceiro Jesuíno Brilhante**, morto em 1879: com o José nascido c. 1880–1898, a adoção aos 11 anos cairia em c. 1891–1909.
+     - Pode ser um parente com o mesmo nome (o nome "Jesuíno" se repetiu na família dele, em Patu e arredores). Também pode ser um "Genuíno Brilhante" de outro ramo. Não há nada sobre ele nas notas anteriores.
+     - Assim a hipótese **Patu (RN)** fica viva **pela adoção**, não pelo sangue.
+- **Óbito do José no Acre: procurar TAMBÉM como "José Patrício (de) Oliveira".** Se a identidade usava esse nome, o óbito pode ter sido registrado com ele, e isso explicaria por que a busca por "José Alves Brilhante" não achou nada.
+- O José Alves Brilhante padrinho em Piancó em 1907 (1:1:66RG-5Y7Z) e os Brilhante de Patu continuam sem ligação provada. Só serviriam para a linha adotiva.
+- Coerência: o Josimar disse "meu avô era José", o que combina com um pai biológico **José (Patrício?) de Oliveira**. O Luiz supunha antes que o pai também se chamasse José Alves **Brilhante**; com a adoção, isso fica improvável.
+
+### Próximos passos (novos)
+1. Perguntar ao tio: **onde o José nasceu ou de onde fugiu**, **onde vivia o Genuíno/Jesuíno** e se o José tinha irmãos de sangue. Também se alguém guarda a identidade ou outro documento do José (foto, número do RG, órgão emissor).
+2. Anotar do **registro de casamento do Geraldo**: data, cartório e cidade, idade, naturalidade e testemunhas.
+3. FamilySearch (com login): buscar **José Patrício (de) Oliveira**, nascido c. 1880–1898 (PB, RN, CE); como pai, cônjuge Antonia (Ferreira de Lima) e filhos Aldísio, Geraldo, Erasmo e Manoel; e como falecido no Acre ou no Amazonas depois de 1977. Buscar também **Benvinda/Bemvinda** com sobrenome Oliveira.
+4. FamilySearch / texto completo: **Genuíno Brilhante** e **Jesuíno Brilhante** com registros de 1880 a 1920 (padrinho, pai, óbito) na PB, no RN e no CE.
+5. registrocivil.org.br / cartórios de Rio Branco: óbito de "José Patrício (de) Oliveira" **e** de "José Alves Brilhante", depois de 1977.
