@@ -67,6 +67,7 @@ SNAP_DIR = PASTA / "snapshots"
 T1_DIR = PASTA / "dados_1turno"
 HIST_CSV = PASTA / "historico.csv"
 PAINEL = PASTA / "painel.html"
+PAINEL_LINK = PASTA / "painel_link.html"
 
 AVISO = ("Projeção estatística, não oficial. Só o TSE totaliza e proclama o resultado "
          "da eleição.")
@@ -114,8 +115,9 @@ class Coletor:
                     raise FileNotFoundError(url)
                 else:
                     erro = f"HTTP {r.status_code}"
-            time.sleep(espera + random.uniform(0, 2))
-            espera *= 2
+            if tentativas > 1:
+                time.sleep(espera + random.uniform(0, 2))
+                espera *= 2
         raise ConnectionError(f"{url}: {erro}")
 
 
@@ -205,20 +207,36 @@ def ultimo_snapshot():
     return json.loads(arqs[-1].read_text()) if arqs else None
 
 
-def coletar_2turno(col, tmpl, el2, anterior):
+def coletar_2turno(col, tmpl, el2, anterior, prazo=75):
+    """Uma tentativa por arquivo; os que falharem (429 etc.) têm mais tentativas enquanto houver
+    prazo. O que sobrar usa o último snapshot e fica marcado como atrasado."""
     agora = datetime.now(TZ)
+    fim = time.monotonic() + prazo
     snap = {"coleta": agora.isoformat(timespec="seconds"), "eleicao": el2["ele"], "abrangencias": {}}
-    for uf in ABRANGENCIAS:
-        try:
-            js = col.get(url_dados(tmpl, el2, uf))
-            snap["abrangencias"][uf] = {"status": "ok", "coletado_em": snap["coleta"], "json": js}
-        except (ConnectionError, FileNotFoundError) as ex:
-            prev = (anterior or {}).get("abrangencias", {}).get(uf)
-            if prev and prev.get("json"):
-                snap["abrangencias"][uf] = {"status": "atrasado", "coletado_em": prev["coletado_em"],
-                                            "erro": str(ex), "json": prev["json"]}
-            else:
-                snap["abrangencias"][uf] = {"status": "sem dados", "erro": str(ex), "json": None}
+    erros = {}
+    pendentes = list(ABRANGENCIAS)
+    while pendentes and time.monotonic() < fim:
+        falhas = []
+        for uf in pendentes:
+            if time.monotonic() >= fim:
+                falhas.append(uf)
+                continue
+            try:
+                js = col.get(url_dados(tmpl, el2, uf), tentativas=1)
+                snap["abrangencias"][uf] = {"status": "ok", "coletado_em": snap["coleta"], "json": js}
+            except (ConnectionError, FileNotFoundError) as ex:
+                erros[uf] = str(ex)
+                falhas.append(uf)
+        pendentes = falhas
+        if pendentes:
+            time.sleep(min(8, max(0, fim - time.monotonic())))
+    for uf in pendentes:
+        prev = (anterior or {}).get("abrangencias", {}).get(uf)
+        if prev and prev.get("json"):
+            snap["abrangencias"][uf] = {"status": "atrasado", "coletado_em": prev["coletado_em"],
+                                        "erro": erros.get(uf, "prazo"), "json": prev["json"]}
+        else:
+            snap["abrangencias"][uf] = {"status": "sem dados", "erro": erros.get(uf, "prazo"), "json": None}
     SNAP_DIR.mkdir(exist_ok=True)
     (SNAP_DIR / f"{agora:%Y%m%d_%H%M%S}.json").write_text(json.dumps(snap, ensure_ascii=False))
     return snap
@@ -576,6 +594,30 @@ def escrever_painel(res, hist, intervalo):
     PAINEL.write_text(html)
 
 
+def escrever_painel_link(res, hist):
+    """Versão enxuta do painel, no formato publicável como Artifact (sem <html>/<head>)."""
+    def limpo(x):
+        return None if isinstance(x, float) and math.isnan(x) else x
+    br, b, t1br = res["br"], res["bruto"], res["t1br"]
+    comp = {c["regiao"]: c for c in res["comp_reg"]}
+    regioes = [{"regiao": r["regiao"], "apurado": r["apurado"], "pA": r["pA"], "pB": r["pB"],
+                "abst2": comp[r["regiao"]]["abst2"], "abst1": comp[r["regiao"]]["abst1"]} for r in res["tab_reg"]]
+    regioes.append({"regiao": "Brasil", "apurado": br["pest"], "pA": 100 * b["pA"], "pB": 100 * b["pB"],
+                    "abst2": br["abst"] / br["est"] if br["est"] else None, "abst1": t1br["abst"] / t1br["te"]})
+    cols = ["hora_tse", "pst", "pct_A", "mc_med_A", "mc_p05_A", "mc_p95_A"]
+    dados = {
+        "nA": res["nome"][res["A"]], "nB": res["nome"][res["B"]], "aviso": AVISO,
+        "hora_tse": f"{br['dg']} {br['hg']}", "pst": br["pst"], "bruto": b, "corr": res["corr_pA"],
+        "ponto": res["ponto_pA"], "mc": res["mc"], "atrasados": [u.upper() for u in res["atrasados"]],
+        "regioes": [{k: limpo(v) for k, v in r.items()} for r in regioes],
+        "hist": [{k: limpo(v) for k, v in row.items()} for row in hist[cols].to_dict("records")],
+        "gerado": datetime.now(TZ).strftime("%H:%M"),
+    }
+    html = (PASTA / "painel_link_modelo.html").read_text()
+    PAINEL_LINK.write_text(html.replace(
+        "__DADOS__", json.dumps(dados, ensure_ascii=False, default=float).replace("</", "<\\/")))
+
+
 # ---------------------------------------------------------------- principal
 
 def rodada(col, tmpl, el2, t1, intervalo):
@@ -584,7 +626,9 @@ def rodada(col, tmpl, el2, t1, intervalo):
     res = analisar(snap, t1, hist)
     imprimir(res, snap)
     salvar_historico(res, snap)
-    escrever_painel(res, ler_historico(), intervalo)
+    hist = ler_historico()
+    escrever_painel(res, hist, intervalo)
+    escrever_painel_link(res, hist)
     return res
 
 

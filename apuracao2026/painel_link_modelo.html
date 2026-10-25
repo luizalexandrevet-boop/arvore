@@ -1,0 +1,142 @@
+<title>Apuração Presidente 2026</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* Layout: coluna única, resumo no topo, detalhe abaixo */
+:root {
+  --bg: #f4f5f3; --card: #fcfcfb; --line: #dfe1dc; --fg: #121412; --fg2: #50544e; --fg3: #7a7e77;
+  --a: #2a78d6; --b: #eb6834; --band: rgba(42,120,214,.16); --warn-bg: #fff3d1; --warn: #6b4a00;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121412; --card: #1b1d1b; --line: #30332f; --fg: #eef0ec; --fg2: #c1c4bd; --fg3: #959990;
+    --a: #3987e5; --b: #d95926; --band: rgba(57,135,229,.22); --warn-bg: #3a2e0c; --warn: #f2d48a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121412; --card: #1b1d1b; --line: #30332f; --fg: #eef0ec; --fg2: #c1c4bd; --fg3: #959990;
+  --a: #3987e5; --b: #d95926; --band: rgba(57,135,229,.22); --warn-bg: #3a2e0c; --warn: #f2d48a; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 760px; margin: 0 auto; padding-block: 20px 36px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 14px; }
+h1 { font-size: 19px; margin: 0; text-wrap: balance; }
+h2 { font-size: 13px; margin: 0 0 10px; color: var(--fg2); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+.meta { color: var(--fg2); font-size: 13px; margin-top: 2px; }
+.aviso { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.num { font-variant-numeric: tabular-nums; }
+.placar { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.placar .c { display: flex; flex-direction: column; }
+.placar .c:last-child { text-align: right; }
+.placar .n { font-size: 13px; color: var(--fg2); }
+.placar .v { font-size: 30px; font-weight: 650; }
+.barra { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; margin-top: 10px; background: var(--line); }
+.barra i { display: block; }
+.dif { color: var(--fg2); font-size: 13px; margin-top: 6px; }
+.sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 14px; }
+th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+#corr td:first-child { white-space: normal; }
+@media (max-width: 480px) { table { font-size: 12.5px; } th, td { padding: 5px 4px; } .placar .v { font-size: 26px; } }
+th { color: var(--fg2); font-weight: 500; font-size: 12px; }
+tr.tot td { font-weight: 600; border-bottom: 0; }
+tr.final td { font-weight: 650; }
+.ic { color: var(--fg3); font-size: 12px; }
+.nota { color: var(--fg2); font-size: 13px; margin: 8px 0 0; }
+.cv { position: relative; height: 240px; }
+</style>
+<main>
+  <header>
+    <h1>Apuração do 2º turno · Presidente 2026</h1>
+    <div class="meta num" id="meta"></div>
+  </header>
+  <div class="aviso" id="aviso"></div>
+
+  <section class="card">
+    <h2>Total apurado</h2>
+    <div class="placar num" id="placar"></div>
+    <div class="barra" id="barra"></div>
+    <div class="dif num" id="dif"></div>
+  </section>
+
+  <section class="card">
+    <h2>Correções até a estimativa final</h2>
+    <div class="scroll"><table id="corr"></table></div>
+    <p class="nota" id="nota"></p>
+  </section>
+
+  <section class="card">
+    <h2>Por região</h2>
+    <div class="scroll"><table id="reg"></table></div>
+    <p class="nota">Abstenção do 2º turno medida nas seções já apuradas; 1º turno, na região inteira.</p>
+  </section>
+
+  <section class="card">
+    <h2 id="tg"></h2>
+    <div class="cv"><canvas id="graf"></canvas></div>
+  </section>
+</main>
+<script>
+const D = __DADOS__;
+const f = (x, c = 2) => x == null ? "—" : Number(x).toFixed(c).replace(".", ",");
+const pc = (x, c = 2) => x == null ? "—" : f(100 * x, c) + "%";
+const sg = (x, c = 1) => x == null ? "—" : (x >= 0 ? "+" : "") + f(x, c);
+const n0 = x => x == null ? "—" : Math.round(x).toLocaleString("pt-BR");
+const nA = D.nA, nB = D.nB;
+
+document.getElementById("meta").textContent =
+  `Horário TSE ${D.hora_tse} · ${f(D.pst)}% das seções apuradas · atualizado ${D.gerado}`;
+document.getElementById("aviso").textContent = D.aviso +
+  (D.atrasados.length ? ` Atrasado (último dado): ${D.atrasados.join(", ")}.` : "");
+
+const b = D.bruto;
+document.getElementById("placar").innerHTML =
+  `<div class="c"><span class="n"><span class="sw" style="background:var(--a)"></span>${nA}</span><span class="v">${pc(b.pA)}</span></div>
+   <div class="c"><span class="n"><span class="sw" style="background:var(--b)"></span>${nB}</span><span class="v">${pc(b.pB)}</span></div>`;
+document.getElementById("barra").innerHTML =
+  `<i style="width:${100 * b.pA}%;background:var(--a)"></i><i style="width:${100 * b.pB}%;background:var(--b)"></i>`;
+document.getElementById("dif").textContent = `Diferença: ${n0(Math.abs(b.dif))} votos para ${b.dif >= 0 ? nA : nB}`;
+
+const m = D.mc;
+document.getElementById("corr").innerHTML =
+  `<tr><th>Método</th><th>${nA}</th><th>${nB}</th></tr>` +
+  [["1. Bruto (TSE)", b.pA], ["2. Mistura regional", D.corr], ["3. Swing vs 1º turno", D.ponto]]
+    .map(([r, x]) => `<tr><td>${r}</td><td>${pc(x)}</td><td>${pc(1 - x)}</td></tr>`).join("") +
+  `<tr class="final"><td>4. Estimativa final (Monte Carlo)</td><td>${pc(m.med)}<div class="ic">IC90 ${pc(m.p05)}–${pc(m.p95)}</div></td>
+   <td>${pc(1 - m.med)}<div class="ic">IC90 ${pc(1 - m.p95)}–${pc(1 - m.p05)}</div></td></tr>
+   <tr class="tot"><td>Probabilidade de vitória</td><td>${pc(m.probA, 0)}</td><td>${pc(m.probB, 0)}</td></tr>`;
+const lado = x => x > 0.5 ? nA : nB;
+document.getElementById("nota").textContent = lado(D.corr) !== lado(D.ponto)
+  ? `Os métodos 2 e 3 apontam vencedores diferentes (${lado(D.corr)} × ${lado(D.ponto)}): estimativa ainda instável.`
+  : `Os métodos 2 e 3 apontam o mesmo vencedor.`;
+
+document.getElementById("reg").innerHTML =
+  `<tr><th>Região</th><th>Apurado</th><th>${nA}</th><th>${nB}</th><th>Abst. 2º</th><th>Abst. 1º</th><th>Δ pp</th></tr>` +
+  D.regioes.map(r => `<tr class="${r.regiao === "Brasil" ? "tot" : ""}"><td>${r.regiao}</td><td>${f(r.apurado, 1)}%</td>
+    <td>${f(r.pA, 1)}%</td><td>${f(r.pB, 1)}%</td><td>${pc(r.abst2, 1)}</td><td>${pc(r.abst1, 1)}</td>
+    <td>${r.abst2 == null ? "—" : sg(100 * (r.abst2 - r.abst1))}</td></tr>`).join("");
+
+document.getElementById("tg").textContent = `Estimativa de ${nA} ao longo da apuração`;
+const cs = getComputedStyle(document.documentElement), tok = n => cs.getPropertyValue(n).trim();
+Chart.defaults.color = tok("--fg2"); Chart.defaults.borderColor = tok("--line"); Chart.defaults.animation = false;
+const H = D.hist, pt = k => H.map(h => ({ x: h.pst, y: h[k] }));
+new Chart(document.getElementById("graf"), {
+  type: "scatter",
+  data: { datasets: [
+    { label: "IC90 sup.", data: pt("mc_p95_A"), showLine: true, borderWidth: 0, pointRadius: 0, fill: "+1", backgroundColor: tok("--band") },
+    { label: "IC90 inf.", data: pt("mc_p05_A"), showLine: true, borderWidth: 0, pointRadius: 0 },
+    { label: "Estimativa final", data: pt("mc_med_A"), showLine: true, borderColor: tok("--a"), backgroundColor: tok("--a"), borderWidth: 2, pointRadius: 2 },
+    { label: "Placar bruto", data: pt("pct_A"), showLine: true, borderColor: tok("--b"), backgroundColor: tok("--b"), borderWidth: 2, pointRadius: 2 },
+    { label: "50%", data: [{ x: 0, y: 50 }, { x: 100, y: 50 }], showLine: true, borderColor: tok("--fg3"), borderDash: [3, 3], borderWidth: 1, pointRadius: 0 } ] },
+  options: { maintainAspectRatio: false, interaction: { mode: "nearest", axis: "x", intersect: false },
+    scales: { x: { min: 0, max: 100, title: { display: true, text: "% apurado" } },
+              y: { ticks: { callback: v => f(v, 0) + "%" } } },
+    plugins: { legend: { labels: { filter: i => !i.text.startsWith("IC90") && i.text !== "50%" } },
+      tooltip: { filter: i => !i.dataset.label.startsWith("IC90"),
+        callbacks: { label: c => `${c.dataset.label}: ${f(c.parsed.y)}% (${f(c.parsed.x, 1)}% apurado)` } } } }
+});
+</script>
