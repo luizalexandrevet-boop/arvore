@@ -125,7 +125,7 @@ def descobrir_eleicoes(col):
     """Acha no ele-c.json as eleições de presidente (cargo 'Presidente') do 1º e 2º turnos de 2026."""
     cache = T1_DIR / "ele-c.json"
     try:
-        cfg = col.get(CONFIG_URL, tentativas=6)
+        cfg = col.get(CONFIG_URL, tentativas=1 if cache.exists() else 6)
         T1_DIR.mkdir(exist_ok=True)
         cache.write_text(json.dumps(cfg, ensure_ascii=False))
     except ConnectionError:
