@@ -121,7 +121,16 @@ class Coletor:
 
 def descobrir_eleicoes(col):
     """Acha no ele-c.json as eleições de presidente (cargo 'Presidente') do 1º e 2º turnos de 2026."""
-    cfg = col.get(CONFIG_URL)
+    cache = T1_DIR / "ele-c.json"
+    try:
+        cfg = col.get(CONFIG_URL, tentativas=6)
+        T1_DIR.mkdir(exist_ok=True)
+        cache.write_text(json.dumps(cfg, ensure_ascii=False))
+    except ConnectionError:
+        if not cache.exists():
+            raise
+        print("[aviso] config do TSE indisponível; usando cópia local", file=sys.stderr)
+        cfg = json.loads(cache.read_text())
     achadas = {}
     for pl in cfg["pl"]:
         if not pl["c"].endswith(ANO) or not pl["dt"].endswith(ANO):
@@ -352,7 +361,9 @@ def analisar(snap, t1, hist):
         t2 = gp.comp.sum() / gp.est.sum() if gp.est.sum() else np.nan
         t1r = g.comp1.sum() / g.te1.sum()
         t1p = gp.comp1.sum() / gp.te1.sum() if len(gp) else np.nan  # mesmas UFs com dado no 2º turno
-        comp_reg.append({"regiao": r, "comp2": t2, "comp1": t1r, "delta_pp": (t2 - t1p) * 100 if len(gp) else np.nan})
+        abst2 = gp.est.sum() and (gp.est.sum() - gp.comp.sum()) / gp.est.sum() or np.nan
+        comp_reg.append({"regiao": r, "comp2": t2, "comp1": t1r, "delta_pp": (t2 - t1p) * 100 if len(gp) else np.nan,
+                         "abst2": abst2, "abst1": 1 - t1r})
 
     # ---- tabela por região
     tab_reg = []
@@ -381,7 +392,7 @@ def analisar(snap, t1, hist):
     # ---- 6. curva da vantagem (histórico + rodada atual)
     tendencia = ajustar_tendencia(hist, bruto)
 
-    return {"A": A, "B": B, "nome": nome, "br": br, "bruto": bruto, "corr_pA": corr_pA, "df": df,
+    return {"A": A, "B": B, "nome": nome, "br": br, "t1br": t1["br"], "bruto": bruto, "corr_pA": corr_pA, "df": df,
             "sw_reg": sw_reg, "sw_nac": sw_nac, "R_tot": R_tot, "lider": lider, "atras": atras, "D": D,
             "precisa": precisa, "transf": transf, "comp_reg": comp_reg, "tab_reg": tab_reg,
             "ponto_pA": ponto_pA, "vv_proj": vv_proj, "mc": mc, "ext": ext, "tendencia": tendencia,
@@ -473,59 +484,34 @@ def fmt_n(x):
 
 
 def imprimir(res, snap):
-    br, bruto, mc, nome, A, B = res["br"], res["bruto"], res["mc"], res["nome"], res["A"], res["B"]
+    br, b, mc, nome, A, B = res["br"], res["bruto"], res["mc"], res["nome"], res["A"], res["B"]
     nA, nB = nome[A], nome[B]
-    print("\n" + "=" * 78)
-    print(f"Coleta {snap['coleta']} | horário TSE: {br['dg']} {br['hg']} | seções totalizadas: {dec(br['pst'])}%"
-          f" (eleitorado: {dec(br['pest'])}%)")
-    print(AVISO)
+    t1br = res["t1br"]
+    print("\n" + "=" * 66)
+    print(f"TSE {br['hg']} | {dec(br['pst'])}% apurado | projeção estatística, NÃO oficial")
     if res["atrasados"]:
-        print(f"ATRASADO (usando último snapshot ou sem dados): {', '.join(u.upper() for u in res['atrasados'])}")
-    print("-" * 78)
-    print(f"Placar bruto        {nA} {pct(bruto['pA'])}  x  {nB} {pct(bruto['pB'])}   "
-          f"diferença {nA}−{nB}: {fmt_n(bruto['dif'])} votos")
-    print(f"Placar corrigido    {nA} {pct(res['corr_pA'])}  x  {nB} {pct(1 - res['corr_pA'])}   "
-          "(27 UFs no mesmo ritmo, peso = eleitorado)")
-    print(f"Projeção (swing)    {nA} {pct(res['ponto_pA'])}  x  {nB} {pct(1 - res['ponto_pA'])}")
-    print(f"Monte Carlo {N_SIM:,}".replace(",", ".") +
-          f"  {nA} {pct(mc['med'])} [IC90 {pct(mc['p05'])} – {pct(mc['p95'])}]   "
-          f"{nB} {pct(1 - mc['med'])} [IC90 {pct(1 - mc['p95'])} – {pct(1 - mc['p05'])}]")
-    print(f"Probabilidade       {nA} {pct(mc['probA'], 1)}   {nB} {pct(mc['probB'], 1)}")
-    print(f"Válidos restantes   ~{fmt_n(res['R_tot'])} (total projetado {fmt_n(res['vv_proj'])}); "
-          f"{nome[res['atras']]} precisa de {pct(res['precisa'], 1)} deles para virar"
-          + (" (acima de 100%: inalcançável pela estimativa)" if res["precisa"] > 1 else ""))
-    t = res["tendencia"]
-    if t["coef"]:
-        print(f"Curva da vantagem   tendência (grau {t['grau']}, {t['n']} pontos) → diferença em 100%: "
-              f"{fmt_n(t['dif_100'])} votos")
-    else:
-        print(f"Curva da vantagem   pontos insuficientes para tendência ({t['n']})")
-    print("-" * 78)
-    print(f"{'Região':<7}{'% apur.':>8}{nA + ' %':>11}{nB + ' %':>11}{'swing ' + nA:>13}{'swing ' + nB:>14}  UFs≥5%")
+        print(f"Atrasado (último snapshot): {', '.join(u.upper() for u in res['atrasados'])}")
+    print(f"TOTAL   {nA} {pct(b['pA'])}  x  {nB} {pct(b['pB'])}   dif. {fmt_n(b['dif'])} votos")
+    print("-" * 66)
+    print(f"{'Região':<7}{'apurado':>8}{nA:>8}{nB:>8}{'Abst. 2ºT':>11}{'Abst. 1ºT':>11}{'Δ pp':>8}")
+    comp = {c["regiao"]: c for c in res["comp_reg"]}
     for r in res["tab_reg"]:
-        print(f"{r['regiao']:<7}{dec(r['apurado']):>8}{dec(r['pA']):>11}{dec(r['pB']):>11}"
-              f"{dec(r['swA'], sinal=True):>13}{dec(r['swB'], sinal=True):>14}  {r['ufs_swing']}/{r['ufs']}")
-    print("(swing = variação em pontos percentuais dos válidos, 2º turno − 1º turno; média ponderada das UFs ≥5%)")
-    print("-" * 78)
-    tr = res["transf"]
-    if tr:
-        print(f"Transferência (regressão, {tr['n_ufs']} UFs): dos votos dos demais candidatos do 1º turno, "
-              f"~{pct(tr['beta_A'], 0)} → {nA}, ~{pct(tr['beta_B'], 0)} → {nB} (R² {dec(tr['r2'])})")
-        if tr["multi"] and not tr["multi_estavel"]:
-            print("  por eliminado: estimativa instável (colinearidade entre UFs), omitida")
-        elif tr["multi"]:
-            print("  por eliminado (indicativo): " + "; ".join(
-                f"{m['cand']} {pct(m['beta_A'], 0)}→{nA}" for m in tr["multi"]))
-    else:
-        print("Transferência: menos de 3 UFs com ≥5% apurado, regressão ainda não calculada")
-    print("Comparecimento 2º turno (Δ vs 1º turno nas mesmas UFs): " + "  ".join(
-        f"{c['regiao']} {pct(c['comp2'], 1)} ({fmt_delta(c['delta_pp'])})" for c in res["comp_reg"]))
-    e = res["ext"]
-    print(f"Exterior [{e['status']}]: {dec(e['apurado'])}% apurado, {nA} {pct(e['pA'])} x {nB} {pct(e['pB'])}; "
-          f"saldo projetado {nA}−{nB}: {fmt_n(e['saldo_proj'])} votos")
-    print("Nota: as primeiras seções apuradas não são amostra aleatória da UF; no início o swing\n"
-          "      e a projeção tendem a oscilar mais do que o intervalo sugere.")
-    print("=" * 78, flush=True)
+        c = comp[r["regiao"]]
+        d = (c["abst2"] - c["abst1"]) * 100
+        print(f"{r['regiao']:<7}{dec(r['apurado'], 1):>7}%{dec(r['pA'], 1):>8}{dec(r['pB'], 1):>8}"
+              f"{pct(c['abst2'], 1):>11}{pct(c['abst1'], 1):>11}{dec(d, 1, sinal=True):>8}")
+    a2 = br["abst"] / br["est"] if br["est"] else float("nan")
+    a1 = t1br["abst"] / t1br["te"]
+    print(f"{'Brasil':<7}{dec(br['pest'], 1):>7}%{dec(100 * b['pA'], 1):>8}{dec(100 * b['pB'], 1):>8}"
+          f"{pct(a2, 1):>11}{pct(a1, 1):>11}{dec((a2 - a1) * 100, 1, sinal=True):>8}")
+    print("-" * 66)
+    print("Correções até a estimativa final")
+    print(f"1. Bruto (TSE)                       {nA} {pct(b['pA'])}")
+    print(f"2. Mistura regional (peso eleitorado) {nA} {pct(res['corr_pA'])}")
+    print(f"3. Swing por UF vs 1º turno           {nA} {pct(res['ponto_pA'])}")
+    print(f"4. Monte Carlo 10 mil (final)         {nA} {pct(mc['med'])}  IC90 {pct(mc['p05'])}–{pct(mc['p95'])}")
+    print(f"   Probabilidade: {nA} {pct(mc['probA'], 0)} | {nB} {pct(mc['probB'], 0)}")
+    print("=" * 66, flush=True)
 
 
 def fmt_delta(x):
