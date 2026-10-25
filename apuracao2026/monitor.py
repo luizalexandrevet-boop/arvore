@@ -411,6 +411,7 @@ def regressao_transferencia(g, outros1, t1, nome, A):
         coef, *_ = np.linalg.lstsq(X.values * sw[:, None], y * sw, rcond=None)
         rotulos = [t1["br"]["cands"][n]["nome"].title() for n in top] + ["Demais"]
         out["multi"] = [{"cand": r, "beta_A": float(c)} for r, c in zip(rotulos, coef)]
+        out["multi_estavel"] = bool(np.all((coef > -0.25) & (coef < 1.25)))
     return out
 
 
@@ -510,7 +511,9 @@ def imprimir(res, snap):
     if tr:
         print(f"Transferência (regressão, {tr['n_ufs']} UFs): dos votos dos demais candidatos do 1º turno, "
               f"~{pct(tr['beta_A'], 0)} → {nA}, ~{pct(tr['beta_B'], 0)} → {nB} (R² {dec(tr['r2'])})")
-        if tr["multi"]:
+        if tr["multi"] and not tr["multi_estavel"]:
+            print("  por eliminado: estimativa instável (colinearidade entre UFs), omitida")
+        elif tr["multi"]:
             print("  por eliminado (indicativo): " + "; ".join(
                 f"{m['cand']} {pct(m['beta_A'], 0)}→{nA}" for m in tr["multi"]))
     else:
@@ -526,7 +529,7 @@ def imprimir(res, snap):
 
 
 def fmt_delta(x):
-    return "—" if x is None or math.isnan(x) else f"{x:+.1f} pp"
+    return "—" if x is None or math.isnan(x) else dec(x, 1, sinal=True) + " pp"
 
 
 def salvar_historico(res, snap):

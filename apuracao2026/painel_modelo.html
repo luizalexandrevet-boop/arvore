@@ -160,7 +160,8 @@ document.getElementById("tReg").innerHTML =
 const t = D.transf;
 document.getElementById("transf").innerHTML = t ? `<p>Regressão entre ${t.n_ufs} UFs (≥5% apurado), swing × fatia dos demais no 1º turno:
   <b>~${p(t.beta_A, 0)}</b> para ${nA}, <b>~${p(t.beta_B, 0)}</b> para ${nB} (R² ${pp(t.r2)}).</p>` +
-  (t.multi ? `<p class="muted">Por eliminado (indicativo, inferência ecológica): ` +
+  (t.multi && !t.multi_estavel ? `<p class="muted">Por eliminado: estimativa instável (colinearidade entre UFs), omitida.</p>` : "") +
+  (t.multi && t.multi_estavel ? `<p class="muted">Por eliminado (indicativo, inferência ecológica): ` +
     t.multi.map(m => `${m.cand} ${p(m.beta_A, 0)}→${nA}`).join("; ") + `</p>` : "") +
   `<p class="muted">Inclui efeitos de comparecimento e troca de voto; valores fora de 0–100% são possíveis.</p>`
   : `<p class="muted">Menos de 3 UFs com ≥5% apurado.</p>`;
