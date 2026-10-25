@@ -1,0 +1,6 @@
+snapshots/
+dados_1turno/
+historico.csv
+painel.html
+monitor.log
+__pycache__/

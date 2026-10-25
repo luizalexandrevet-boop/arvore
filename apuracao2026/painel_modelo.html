@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="__INTERVALO__">
+<title>Apuração 2º turno</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  color-scheme: light;
+  --surface-0: #f3f3f1; --surface-1: #fcfcfb; --border: #dcdbd6;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #77766f;
+  --grid: #e6e5e0; --series-1: #2a78d6; --series-2: #eb6834; --band-1: rgba(42,120,214,.16);
+  --warn-bg: #fff4d6; --warn-text: #6b4a00;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-0: #111110; --surface-1: #1a1a19; --border: #33332f;
+    --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #96958c;
+    --grid: #2a2a27; --series-1: #3987e5; --series-2: #d95926; --band-1: rgba(57,135,229,.22);
+    --warn-bg: #3a2e0c; --warn-text: #f2d48a;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #111110; --surface-1: #1a1a19; --border: #33332f;
+  --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #96958c;
+  --grid: #2a2a27; --series-1: #3987e5; --series-2: #d95926; --band-1: rgba(57,135,229,.22);
+  --warn-bg: #3a2e0c; --warn-text: #f2d48a;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--surface-0); color: var(--text-primary);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 40px; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+h2 { font-size: 15px; margin: 0 0 10px; }
+.sub { color: var(--text-secondary); margin: 0 0 14px; }
+.aviso { background: var(--warn-bg); color: var(--warn-text); border-radius: 8px; padding: 8px 12px; margin-bottom: 14px; }
+.grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 12px; }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+.kpi .rot { color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.kpi .val { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.kpi .det { color: var(--text-muted); font-size: 12px; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: baseline; }
+.charts { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); margin-bottom: 12px; }
+.cv { position: relative; height: 280px; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--text-secondary); font-weight: 500; font-size: 12px; }
+.scroll { overflow-x: auto; }
+.atr { color: var(--warn-text); background: var(--warn-bg); border-radius: 4px; padding: 0 5px; font-size: 12px; }
+.muted { color: var(--text-muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Apuração do 2º turno — Presidente 2026</h1>
+  <p class="sub" id="sub"></p>
+  <div class="aviso" id="aviso"></div>
+
+  <div class="grid" id="kpis"></div>
+
+  <div class="charts">
+    <div class="card"><h2 id="t1"></h2><div class="cv"><canvas id="cVant"></canvas></div>
+      <p class="muted" id="n1"></p></div>
+    <div class="card"><h2 id="t2"></h2><div class="cv"><canvas id="cProj"></canvas></div>
+      <p class="muted">Faixa = intervalo de 90% do Monte Carlo (10.000 simulações).</p></div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px"><h2>Por região</h2><div class="scroll"><table id="tReg"></table></div>
+    <p class="muted">Swing = variação em pontos percentuais dos válidos (2º turno − 1º turno), média ponderada pelas UFs com ≥5% apurado.
+    Comparecimento do 2º turno medido nas seções já totalizadas.</p></div>
+
+  <div class="grid">
+    <div class="card"><h2>Transferência dos eliminados</h2><div id="transf"></div></div>
+    <div class="card"><h2>Exterior</h2><div id="ext"></div></div>
+  </div>
+
+  <div class="card"><h2>Por UF</h2><div class="scroll"><table id="tUf"></table></div>
+    <p class="muted">Fonte do swing: UF (própria, ≥5% apurado), região ou nacional. “Fatia restante” = % esperado para <span class="nA"></span> nos válidos ainda não apurados.</p></div>
+</main>
+<script>
+const D = __DADOS__;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const p = (x, c = 2) => x == null ? "—" : (100 * x).toFixed(c).replace(".", ",") + "%";
+const pp = (x, c = 2) => x == null ? "—" : x.toFixed(c).replace(".", ",");
+const sg = (x, c = 2) => x == null ? "—" : (x >= 0 ? "+" : "") + x.toFixed(c).replace(".", ",");
+const n0 = x => x == null ? "—" : Math.round(x).toLocaleString("pt-BR");
+const nA = D.nA, nB = D.nB;
+document.querySelectorAll(".nA").forEach(e => e.textContent = nA);
+
+document.getElementById("sub").textContent =
+  `Horário TSE ${D.hora_tse} · seções totalizadas ${pp(D.bruto.pst)}% · painel gerado ${D.gerado} · atualiza a cada ${D.intervalo} s`;
+document.getElementById("aviso").textContent = D.aviso +
+  (D.atrasados.length ? ` Atrasado (último snapshot): ${D.atrasados.join(", ")}.` : "");
+
+const sw = v => `<span class="sw" style="background:var(${v})"></span>`;
+const kpis = [
+  ["Apurado", pp(D.bruto.pst) + "%", "das seções"],
+  ["Placar bruto", `${p(D.bruto.pA)} × ${p(D.bruto.pB)}`, `${nA} − ${nB}: ${n0(D.bruto.dif)} votos`],
+  ["Placar corrigido", `${p(D.corr)} × ${p(1 - D.corr)}`, "UFs no mesmo ritmo (peso = eleitorado)"],
+  [`Projeção ${nA}`, p(D.mc.med), `IC90 ${p(D.mc.p05)} – ${p(D.mc.p95)}`],
+  [`Projeção ${nB}`, p(1 - D.mc.med), `IC90 ${p(1 - D.mc.p95)} – ${p(1 - D.mc.p05)}`],
+  ["Probabilidade", `${pp(100 * D.mc.probA, 1)}% × ${pp(100 * D.mc.probB, 1)}%`, `${nA} × ${nB}`],
+  ["Válidos restantes", n0(D.R), `${D.atras} precisa de ${p(D.precisa, 1)} deles para virar`],
+];
+document.getElementById("kpis").innerHTML = kpis.map(([r, v, d]) =>
+  `<div class="card kpi"><div class="rot">${r}</div><div class="val">${v}</div><div class="det">${d}</div></div>`).join("");
+
+Chart.defaults.color = css("--text-secondary");
+Chart.defaults.borderColor = css("--grid");
+Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+Chart.defaults.animation = false;
+const c1 = css("--series-1"), c2 = css("--series-2"), band = css("--band-1"), muted = css("--text-muted");
+
+document.getElementById("t1").textContent = `Vantagem (${nA} − ${nB}, votos) × % apurado`;
+document.getElementById("n1").textContent = D.dif100 != null
+  ? `Tendência ajustada aponta diferença de ${n0(D.dif100)} votos em 100% (extrapolação, não projeção oficial).`
+  : "Pontos insuficientes para ajustar a tendência.";
+new Chart(document.getElementById("cVant"), {
+  type: "scatter",
+  data: { datasets: [
+    { label: "Diferença", data: D.hist.map(h => ({ x: h.pst, y: h.dif_votos })), showLine: true,
+      borderColor: c1, backgroundColor: c1, borderWidth: 2, pointRadius: 3, pointHoverRadius: 6 },
+    { label: "Tendência", data: D.trend, showLine: true, borderColor: muted, borderDash: [5, 4],
+      borderWidth: 2, pointRadius: 0 } ] },
+  options: { maintainAspectRatio: false, interaction: { mode: "nearest", intersect: false },
+    scales: { x: { min: 0, max: 100, title: { display: true, text: "% seções totalizadas" } },
+              y: { ticks: { callback: v => n0(v) } } },
+    plugins: { tooltip: { callbacks: { label: c => `${c.dataset.label}: ${n0(c.parsed.y)} votos em ${pp(c.parsed.x)}%` } } } }
+});
+
+document.getElementById("t2").textContent = `% válidos de ${nA}: bruto e projeção ao longo do tempo`;
+const lab = D.hist.map(h => (h.hora_tse || "").slice(0, 5));
+new Chart(document.getElementById("cProj"), {
+  type: "line",
+  data: { labels: lab, datasets: [
+    { label: "IC90 sup.", data: D.hist.map(h => h.mc_p95_A), borderWidth: 0, pointRadius: 0, fill: "+1", backgroundColor: band },
+    { label: "IC90 inf.", data: D.hist.map(h => h.mc_p05_A), borderWidth: 0, pointRadius: 0, fill: false },
+    { label: "Projeção (mediana)", data: D.hist.map(h => h.mc_med_A), borderColor: c1, borderWidth: 2, pointRadius: 2 },
+    { label: "Placar bruto", data: D.hist.map(h => h.pct_A), borderColor: c2, borderWidth: 2, pointRadius: 2 },
+    { label: "50%", data: D.hist.map(() => 50), borderColor: muted, borderDash: [3, 3], borderWidth: 1, pointRadius: 0 } ] },
+  options: { maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
+    scales: { y: { ticks: { callback: v => pp(v, 1) + "%" } }, x: { title: { display: true, text: "horário TSE" } } },
+    plugins: { legend: { labels: { filter: i => !i.text.startsWith("IC90") } },
+      tooltip: { callbacks: { label: c => `${c.dataset.label}: ${pp(c.parsed.y)}%` } } } }
+});
+
+const comp = Object.fromEntries(D.comp.map(c => [c.regiao, c]));
+document.getElementById("tReg").innerHTML =
+  `<tr><th>Região</th><th>% apurado</th><th>${sw("--series-1")}${nA} %</th><th>${sw("--series-2")}${nB} %</th>
+   <th>swing ${nA}</th><th>swing ${nB}</th><th>UFs ≥5%</th><th>Compar. 2º t.</th><th>Δ vs 1º t.</th></tr>` +
+  D.regioes.map(r => { const c = comp[r.regiao] || {}; return `<tr><td>${r.regiao}</td><td>${pp(r.apurado)}</td>
+   <td>${pp(r.pA)}</td><td>${pp(r.pB)}</td><td>${sg(r.swA)}</td><td>${sg(r.swB)}</td><td>${r.ufs_swing}/${r.ufs}</td>
+   <td>${p(c.comp2, 1)}</td><td>${c.delta_pp == null ? "—" : sg(c.delta_pp, 1) + " pp"}</td></tr>`; }).join("");
+
+const t = D.transf;
+document.getElementById("transf").innerHTML = t ? `<p>Regressão entre ${t.n_ufs} UFs (≥5% apurado), swing × fatia dos demais no 1º turno:
+  <b>~${p(t.beta_A, 0)}</b> para ${nA}, <b>~${p(t.beta_B, 0)}</b> para ${nB} (R² ${pp(t.r2)}).</p>` +
+  (t.multi ? `<p class="muted">Por eliminado (indicativo, inferência ecológica): ` +
+    t.multi.map(m => `${m.cand} ${p(m.beta_A, 0)}→${nA}`).join("; ") + `</p>` : "") +
+  `<p class="muted">Inclui efeitos de comparecimento e troca de voto; valores fora de 0–100% são possíveis.</p>`
+  : `<p class="muted">Menos de 3 UFs com ≥5% apurado.</p>`;
+
+const e = D.ext;
+document.getElementById("ext").innerHTML = `<p>${e.status === "ok" ? "" : '<span class="atr">' + e.status + "</span> "}
+  ${pp(e.apurado)}% apurado · ${nA} ${p(e.pA)} × ${nB} ${p(e.pB)}</p>
+  <p class="muted">1º turno: ${nA} ${p(e.s1A)} × ${nB} ${p(e.s1B)}. Saldo projetado ${nA} − ${nB}: ${n0(e.saldo_proj)} votos;
+  válidos restantes ~${n0(e.R)}.</p>`;
+
+document.getElementById("tUf").innerHTML =
+  `<tr><th>UF</th><th>Região</th><th>% apurado</th><th>peso eleit.</th><th>${nA} %</th><th>swing ${nA}</th>
+   <th>fonte</th><th>fatia restante</th><th>válidos restantes</th><th>proj. ${nA}</th></tr>` +
+  D.ufs.map(u => `<tr><td>${u.uf} ${u.status === "ok" ? "" : '<span class="atr">' + u.status + "</span>"}</td>
+   <td>${u.regiao}</td><td>${pp(u.apurado)}</td><td>${pp(u.peso)}</td><td>${pp(u.pA)}</td><td>${sg(u.swA)}</td>
+   <td>${u.fonte}</td><td>${pp(u.qA)}</td><td>${n0(u.R)}</td><td>${pp(u.proj)}</td></tr>`).join("");
+</script>
+</body>
+</html>
