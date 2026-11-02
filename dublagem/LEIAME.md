@@ -1,34 +1,33 @@
 # Dublagem gratuita em PT-BR (duas vozes)
 
-Script `dublar.py`: pega um vídeo, transcreve, separa em 2 falantes, traduz para
-português e dubla com uma voz masculina (Antonio) e uma feminina (Francisca).
-Só usa ferramentas gratuitas:
+## Windows: dois cliques
+1. Baixe e extraia esta pasta.
+2. Dê dois cliques em **DUBLAR.bat**.
+3. Na primeira vez ele instala tudo sozinho (Python e ferramentas, grátis). Depois
+   pede o link do YouTube: cole ou só aperte Enter para o vídeo padrão.
+4. No fim, abre a pasta `saida` com:
+   - `video_dublado.mp4`: o vídeo com a dublagem em português (original bem baixo ao fundo)
+   - `audio_dublado.mp3`: só a dublagem
+   - `roteiro_pt.txt`: o texto traduzido, separado por VOZ 1 / VOZ 2
+   - `legendas_pt.srt` e `legendas_original.srt`
 
-| Etapa | Ferramenta | Custo |
-|---|---|---|
-| Download | yt-dlp | grátis |
-| Transcrição | faster-whisper (roda no computador) | grátis |
-| 2 falantes | MFCC + KMeans (librosa/scikit-learn) | grátis |
-| Tradução | Argos Translate (offline) | grátis |
-| Vozes | edge-tts (vozes neurais da Microsoft, sem chave) | grátis |
-| Montagem | ffmpeg | grátis |
+Se o Windows mostrar "O Windows protegeu o computador", clique em
+**Mais informações → Executar assim mesmo**.
 
-## Como usar no seu computador
+Mac/Linux: `sh dublar.sh "LINK"`.
 
-```bash
-pip install -r requirements.txt          # precisa também do ffmpeg instalado
-pip install yt-dlp
-yt-dlp -f "bv*[height<=720]+ba/b" -o video.mp4 "https://www.youtube.com/watch?v=z9gTnoftoRU"
-python3 dublar.py video.mp4 --saida saida
-```
+## O que é usado (tudo gratuito)
+| Etapa | Ferramenta |
+|---|---|
+| Download | yt-dlp |
+| Transcrição | faster-whisper (roda no próprio computador) |
+| 2 falantes | timbre/tom da voz + KMeans (librosa, scikit-learn) |
+| Tradução | Google Tradutor gratuito (reserva: MyMemory) |
+| Vozes | edge-tts: Antonio (Voz 1, masculina) e Francisca (Voz 2, feminina) |
+| Montagem | ffmpeg embutido (imageio-ffmpeg) |
 
-Saída em `saida/`:
-- `video_dublado.mp4` — vídeo com a dublagem por cima (original bem baixo ao fundo)
-- `audio_dublado.mp3` — só a dublagem
-- `legendas_pt.srt` e `legendas_original.srt` — com marcação [Voz 1]/[Voz 2]
-
-Dicas:
-- `--modelo medium` transcreve melhor (mais lento); `small` é o padrão.
-- `--idioma en` força o idioma de origem se a detecção errar.
-- Para trocar vozes, edite `VOZES` no topo do script (`edge-tts --list-voices | grep pt-BR`).
-- Se um vídeo tiver mais de 2 pessoas, as vozes ficam agrupadas em 2.
+## Ajustes
+- Transcrição mais precisa (mais lenta): `python dublar.py LINK --modelo medium`
+- Trocar vozes: edite `VOZES` no topo do `dublar.py`.
+- Se parar no meio, rode de novo: o que já foi feito fica guardado em `saida/trabalho`.
+  Para recomeçar do zero, apague a pasta `saida`.

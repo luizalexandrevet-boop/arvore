@@ -1,147 +1,217 @@
 #!/usr/bin/env python3
 """Dublagem gratuita em PT-BR com duas vozes.
 
-Etapas (tudo com ferramentas gratuitas):
-  1. Transcrição com faster-whisper (local).
-  2. Separação de falantes: agrupa os trechos em 2 vozes por características
-     do áudio (MFCC + KMeans) — sem token pago.
-  3. Tradução para português com Argos Translate (offline, gratuito).
-  4. Síntese de voz com edge-tts (gratuito): uma voz masculina e uma feminina.
-  5. Montagem: cada fala é encaixada no tempo original (acelerada se precisar)
-     e o resultado é mixado sobre o vídeo, gerando também legendas .srt.
-
 Uso:
-  python3 dublar.py VIDEO.mp4 [--saida pasta] [--modelo small] [--idioma en]
+  python dublar.py LINK_DO_YOUTUBE_ou_ARQUIVO [--saida pasta] [--modelo small]
+
+Etapas (tudo gratuito):
+  0. Baixa o vídeo com yt-dlp (se receber um link).
+  1. Transcreve com faster-whisper (roda no computador).
+  2. Separa em 2 falantes pelo timbre da voz (MFCC + tom + KMeans).
+  3. Traduz para português (Google Tradutor gratuito; reserva: MyMemory).
+  4. Gera as vozes com edge-tts: Antonio (Voz 1) e Francisca (Voz 2).
+  5. Encaixa cada fala no tempo original e monta o vídeo dublado + legendas.
+O ffmpeg vem embutido (imageio-ffmpeg); não precisa instalar à parte.
 """
-import argparse, asyncio, json, os, subprocess, sys
+import argparse, asyncio, json, re, subprocess, sys, time
 from pathlib import Path
 
+import imageio_ffmpeg
+
+FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 VOZES = ["pt-BR-AntonioNeural", "pt-BR-FranciscaNeural"]
 
 
-def sh(*cmd):
-    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+def ff(*args):
+    r = subprocess.run([FFMPEG, "-hide_banner", "-y", *args], capture_output=True, text=True)
+    if r.returncode:
+        sys.exit("Erro no ffmpeg:\n" + r.stderr[-1500:])
+
+
+def duracao(arq):
+    r = subprocess.run([FFMPEG, "-hide_banner", "-i", str(arq)], capture_output=True, text=True)
+    m = re.search(r"Duration: (\d+):(\d+):([\d.]+)", r.stderr)
+    return int(m[1]) * 3600 + int(m[2]) * 60 + float(m[3]) if m else 0.0
+
+
+def baixar(link, pasta):
+    import yt_dlp
+    print("Baixando o vídeo...")
+    opts = {"format": "bv*[height<=720]+ba/b[height<=720]/b", "merge_output_format": "mp4",
+            "outtmpl": str(pasta / "video.%(ext)s"), "ffmpeg_location": FFMPEG,
+            "noplaylist": True, "quiet": True, "no_warnings": True}
+    with yt_dlp.YoutubeDL(opts) as y:
+        info = y.extract_info(link, download=True)
+    (pasta / "info.txt").write_text(f"{info.get('title')}\n{info.get('uploader')}\n"
+                                    f"{info.get('description') or ''}", encoding="utf-8")
+    return next(pasta.glob("video.*"))
 
 
 def transcrever(audio, modelo, idioma):
     from faster_whisper import WhisperModel
+    print(f"Transcrevendo (modelo {modelo}; pode demorar)...")
     m = WhisperModel(modelo, device="cpu", compute_type="int8")
-    segs, info = m.transcribe(str(audio), language=idioma, vad_filter=True)
-    out = [{"ini": s.start, "fim": s.end, "texto": s.text.strip()} for s in segs]
-    print(f"Idioma detectado: {info.language} | {len(out)} trechos")
+    import soundfile as sf
+    onda, _ = sf.read(str(audio), dtype="float32")  # 16 kHz mono
+    segs, info = m.transcribe(onda, language=idioma, vad_filter=True)
+    out = []
+    for s in segs:
+        out.append({"ini": round(s.start, 2), "fim": round(s.end, 2), "texto": s.text.strip()})
+        print(f"\r  {s.end/60:6.1f} min transcritos", end="", flush=True)
+    print(f"\nIdioma: {info.language} | {len(out)} trechos")
     return out, info.language
 
 
 def separar_falantes(audio, segs):
     import numpy as np, librosa
     from sklearn.cluster import KMeans
+    print("Separando as duas vozes...")
     y, sr = librosa.load(str(audio), sr=16000)
     feats = []
     for s in segs:
-        trecho = y[int(s["ini"] * sr):int(s["fim"] * sr)]
-        if len(trecho) < sr // 4:
-            trecho = np.pad(trecho, (0, sr // 4 - len(trecho)))
-        mf = librosa.feature.mfcc(y=trecho, sr=sr, n_mfcc=20)
-        f0 = librosa.yin(trecho, fmin=60, fmax=400, sr=sr)
-        feats.append(np.concatenate([mf.mean(1), mf.std(1), [np.median(f0)]]))
+        t = y[int(s["ini"] * sr):int(s["fim"] * sr)]
+        if len(t) < sr // 2:
+            t = np.pad(t, (0, sr // 2 - len(t)))
+        mf = librosa.feature.mfcc(y=t, sr=sr, n_mfcc=20)
+        f0 = librosa.yin(t, fmin=60, fmax=400, sr=sr)
+        feats.append(np.concatenate([mf.mean(1)[1:], mf.std(1)[1:], [np.median(f0)] * 3]))
     X = np.array(feats)
     X = (X - X.mean(0)) / (X.std(0) + 1e-9)
     rot = KMeans(n_clusters=2, n_init=10, random_state=0).fit_predict(X)
+    # Voz 1 = quem fala primeiro
+    if rot[0] == 1:
+        rot = 1 - rot
     for s, r in zip(segs, rot):
         s["falante"] = int(r)
 
 
 def traduzir(segs, origem):
-    import argostranslate.package as pk, argostranslate.translate as tr
-    pk.update_package_index()
-    disp = pk.get_available_packages()
-
-    def instalar(a, b):
-        p = next((p for p in disp if p.from_code == a and p.to_code == b), None)
-        if p and not any(i.from_code == a and i.to_code == b for i in pk.get_installed_packages()):
-            pk.install_from_path(p.download())
-        return p is not None
-
-    if origem != "pt" and not instalar(origem, "pt"):
-        instalar(origem, "en"); instalar("en", "pt")  # pivô via inglês
-    for s in segs:
-        s["pt"] = tr.translate(s["texto"], origem, "pt") if origem != "pt" else s["texto"]
+    from deep_translator import GoogleTranslator, MyMemoryTranslator
+    if origem == "pt":
+        for s in segs:
+            s["pt"] = s["texto"]
+        return
+    print("Traduzindo para português...")
+    g = GoogleTranslator(source="auto", target="pt")
+    for i, s in enumerate(segs):
+        for tentativa in range(5):
+            try:
+                s["pt"] = g.translate(s["texto"]) or s["texto"]
+                break
+            except Exception:
+                time.sleep(2 * (tentativa + 1))
+        else:
+            try:
+                s["pt"] = MyMemoryTranslator(source=origem, target="pt-BR").translate(s["texto"])
+            except Exception:
+                s["pt"] = s["texto"]
+        print(f"\r  {i+1}/{len(segs)}", end="", flush=True)
+        time.sleep(0.25)
+    print()
 
 
 async def sintetizar(segs, pasta):
     import edge_tts
+    print("Gerando as vozes em português...")
     for i, s in enumerate(segs):
-        mp3 = pasta / f"{i:05d}.mp3"
-        if not mp3.exists():
-            await edge_tts.Communicate(s["pt"], VOZES[s["falante"]]).save(str(mp3))
-        s["mp3"] = str(mp3)
-
-
-def duracao(arq):
-    r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
-                        "-of", "csv=p=0", arq], capture_output=True, text=True)
-    return float(r.stdout.strip() or 0)
+        wav = pasta / f"{i:05d}.wav"
+        if not wav.exists():
+            mp3 = pasta / f"{i:05d}.mp3"
+            for tentativa in range(4):
+                try:
+                    await edge_tts.Communicate(s["pt"], VOZES[s["falante"]]).save(str(mp3))
+                    break
+                except Exception:
+                    await asyncio.sleep(3 * (tentativa + 1))
+            else:
+                sys.exit("Não consegui gerar a voz (verifique a internet) e rode de novo; "
+                         "o que já foi feito fica guardado.")
+            ff("-i", str(mp3), "-ac", "1", "-ar", "24000", str(wav))
+            mp3.unlink()
+        s["wav"] = str(wav)
+        print(f"\r  {i+1}/{len(segs)}", end="", flush=True)
+    print()
 
 
 def montar(video, segs, pasta, saida):
-    """Gera a faixa dublada em blocos para não estourar a linha de comando."""
-    total = duracao(str(video))
-    trilha = pasta / "dublagem.wav"
-    sh("ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono", "-t", str(total), str(trilha))
-    for b in range(0, len(segs), 40):
-        bloco = segs[b:b + 40]
-        entradas, filtros = ["-i", str(trilha)], []
-        for j, s in enumerate(bloco, 1):
-            janela = max(s["fim"] - s["ini"], 0.5)
-            vel = min(max(duracao(s["mp3"]) / janela, 1.0), 1.6)
-            entradas += ["-i", s["mp3"]]
-            atraso = int(s["ini"] * 1000)
-            filtros.append(f"[{j}]atempo={vel:.3f},aresample=24000,adelay={atraso}[a{j}]")
-        mix = "".join(f"[a{j}]" for j in range(1, len(bloco) + 1))
-        filtros.append(f"[0]{mix}amix=inputs={len(bloco)+1}:normalize=0:duration=first[o]")
-        tmp = pasta / "tmp.wav"
-        sh("ffmpeg", "-y", *entradas, "-filter_complex", ";".join(filtros), "-map", "[o]", str(tmp))
-        tmp.replace(trilha)
-    # áudio original bem baixo ao fundo + dublagem por cima
-    sh("ffmpeg", "-y", "-i", str(video), "-i", str(trilha), "-filter_complex",
-       "[0:a]volume=0.12[bg];[bg][1:a]amix=inputs=2:normalize=0:duration=first[a]",
-       "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", str(saida / "video_dublado.mp4"))
-    sh("ffmpeg", "-y", "-i", str(trilha), "-c:a", "libmp3lame", "-q:a", "4", str(saida / "audio_dublado.mp3"))
+    import numpy as np, soundfile as sf
+    print("Montando o vídeo dublado...")
+    sr = 24000
+    total = duracao(video)
+    trilha = np.zeros(int((total + 30) * sr), dtype=np.float32)
+    for k, s in enumerate(segs):
+        dados, _ = sf.read(s["wav"], dtype="float32")
+        # tempo disponível: até a próxima fala (ou o fim do trecho, se maior)
+        prox = segs[k + 1]["ini"] if k + 1 < len(segs) else total
+        janela = max(prox - s["ini"], s["fim"] - s["ini"], 0.5)
+        vel = len(dados) / sr / janela
+        if vel > 1.0:
+            rapido = pasta / f"r{k:05d}.wav"
+            ff("-i", s["wav"], "-filter:a", f"atempo={min(vel, 1.7):.3f}", str(rapido))
+            dados, _ = sf.read(str(rapido), dtype="float32")
+            rapido.unlink()
+        a = int(s["ini"] * sr)
+        trilha[a:a + len(dados)] += dados[:len(trilha) - a]
+    trilha = trilha[:int(total * sr)]
+    sf.write(str(saida / "audio_dublado.wav"), np.clip(trilha, -1, 1), sr)
+    ff("-i", str(video), "-i", str(saida / "audio_dublado.wav"), "-filter_complex",
+       "[0:a]volume=0.10[bg];[bg][1:a]amix=inputs=2:normalize=0:duration=first[a]",
+       "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "160k",
+       str(saida / "video_dublado.mp4"))
+    ff("-i", str(saida / "audio_dublado.wav"), "-b:a", "128k", str(saida / "audio_dublado.mp3"))
+    (saida / "audio_dublado.wav").unlink()
 
 
-def srt(segs, arq, campo):
-    def t(x):
-        h, r = divmod(x, 3600); m, s = divmod(r, 60)
-        return f"{int(h):02d}:{int(m):02d}:{int(s):02d},{int((s % 1) * 1000):03d}"
-    with open(arq, "w", encoding="utf-8") as f:
-        for i, s in enumerate(segs, 1):
-            f.write(f"{i}\n{t(s['ini'])} --> {t(s['fim'])}\n[Voz {s['falante']+1}] {s[campo]}\n\n")
+def tempo(x):
+    h, r = divmod(x, 3600); m, s = divmod(r, 60)
+    return f"{int(h):02d}:{int(m):02d}:{int(s):02d},{int(round((s % 1) * 1000)) % 1000:03d}"
+
+
+def escrever_textos(segs, saida):
+    for campo, nome in (("texto", "legendas_original.srt"), ("pt", "legendas_pt.srt")):
+        with open(saida / nome, "w", encoding="utf-8") as f:
+            for i, s in enumerate(segs, 1):
+                f.write(f"{i}\n{tempo(s['ini'])} --> {tempo(s['fim'])}\n"
+                        f"[Voz {s['falante']+1}] {s[campo]}\n\n")
+    # roteiro corrido em PT, agrupando falas seguidas do mesmo falante
+    with open(saida / "roteiro_pt.txt", "w", encoding="utf-8") as f:
+        atual = None
+        for s in segs:
+            if s["falante"] != atual:
+                atual = s["falante"]
+                f.write(f"\n[{tempo(s['ini'])[:8]}] VOZ {atual+1}: ")
+            f.write(s["pt"] + " ")
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("video")
+    ap.add_argument("entrada", help="link do YouTube ou arquivo de vídeo")
     ap.add_argument("--saida", default="saida")
-    ap.add_argument("--modelo", default="small")
-    ap.add_argument("--idioma", default=None)
+    ap.add_argument("--modelo", default="small", help="tiny/base/small/medium")
+    ap.add_argument("--idioma", default=None, help="idioma falado, ex.: en (opcional)")
     a = ap.parse_args()
-    video, saida = Path(a.video), Path(a.saida)
-    pasta = saida / "trabalho"; pasta.mkdir(parents=True, exist_ok=True)
-    audio = pasta / "audio16k.wav"
-    sh("ffmpeg", "-y", "-i", str(video), "-ac", "1", "-ar", "16000", str(audio))
+    saida = Path(a.saida); pasta = saida / "trabalho"
+    pasta.mkdir(parents=True, exist_ok=True)
+
+    if re.match(r"https?://", a.entrada):
+        video = next(pasta.glob("video.*"), None) or baixar(a.entrada, pasta)
+    else:
+        video = Path(a.entrada)
+
     cache = pasta / "segmentos.json"
     if cache.exists():
-        segs, lang = json.loads(cache.read_text())
+        segs, lang = json.loads(cache.read_text(encoding="utf-8"))
     else:
+        audio = pasta / "audio16k.wav"
+        ff("-i", str(video), "-vn", "-ac", "1", "-ar", "16000", str(audio))
         segs, lang = transcrever(audio, a.modelo, a.idioma)
         separar_falantes(audio, segs)
         traduzir(segs, lang)
-        cache.write_text(json.dumps([segs, lang], ensure_ascii=False, indent=1))
-    srt(segs, saida / "legendas_original.srt", "texto")
-    srt(segs, saida / "legendas_pt.srt", "pt")
+        cache.write_text(json.dumps([segs, lang], ensure_ascii=False, indent=1), encoding="utf-8")
+    escrever_textos(segs, saida)
     asyncio.run(sintetizar(segs, pasta))
     montar(video, segs, pasta, saida)
-    print("Pronto:", saida.resolve())
+    print("\nPRONTO! Arquivos em:", saida.resolve())
 
 
 if __name__ == "__main__":

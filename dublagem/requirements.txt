@@ -1,5 +1,8 @@
+yt-dlp
 faster-whisper
-argostranslate
+deep-translator
 edge-tts
 librosa
 scikit-learn
+soundfile
+imageio-ffmpeg
